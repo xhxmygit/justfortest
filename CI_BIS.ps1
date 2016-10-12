@@ -4,7 +4,7 @@ $vmName = "FreeBSD11"
 $hvServer = "localhost"
 
 # $v = Get-VM  -Name $vmName -ComputerName $hvServer
-$VMs = Get-VM 
+$VMs =  Get-ExecutionPolicy
 if ($VMs -eq $null)
 {
 	"Error: VM cannot find the VMs"
