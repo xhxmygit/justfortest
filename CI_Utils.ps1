@@ -405,7 +405,7 @@ function SendCommandToVMUntilTimeout([System.Xml.XmlElement] $vm, [string] $comm
 	LogMsg 3 "Info: Set Command = '$command' can be finished within $commandTimeout seconds."
     while(!$process.hasExited)
     {
-        LogMsg 8 "Waiting 1 second to check the process status for Command = '$command'."
+        LogMsg 11 "Waiting 1 second to check the process status for Command = '$command'."
         sleep 1
         $commandTimeout -= 1
         if ($commandTimeout -le 0)
