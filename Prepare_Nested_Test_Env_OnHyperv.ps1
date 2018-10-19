@@ -6,7 +6,20 @@ param([string]$server_host,
 [string]$client_vm, 
 [string]$srcPath="", 
 [string]$dstPath="", 
+$user, 
+$password, 
 [switch]$enable_Network)
+
+
+Function Get-Cred($user, $password)
+{
+	$secstr = New-Object -TypeName System.Security.SecureString
+	$password.ToCharArray() | ForEach-Object {$secstr.AppendChar($_)}
+	$cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $user, $secstr
+	Set-Item WSMan:\localhost\Client\TrustedHosts * -Force
+	return $cred
+}
+
 
 Function RemoveVM ($computerName, $vmName) {
 	Write-Output "Delete the $vmName on $computerName if it exits."
@@ -21,11 +34,11 @@ Function RemoveVM ($computerName, $vmName) {
 	}
 }
 
-Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath) {
+Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath, $cred) {
 	Write-Output "Copy $srcPath to $dstPath on $computerName ..."
 	
 	if( $srcPath.Trim().StartsWith("http") ){
-		Invoke-Command -ComputerName $computerName  -ScriptBlock {
+		Invoke-Command -ComputerName $computerName -Credential $cred -ScriptBlock {
 			param($srcPath, $dstPath)
 			
 			Import-Module BitsTransfer
@@ -59,7 +72,7 @@ Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath) {
 		}  -ArgumentList $srcPath, $dstPath
 	}
 	else {
-		Invoke-Command -ComputerName $computerName  -ScriptBlock {
+		Invoke-Command -ComputerName $computerName  -Credential $cred -ScriptBlock {
 			param($srcPath, $dstPath)
 			
 			Copy-Item $srcPath -Destination $dstPath -Force
@@ -72,6 +85,8 @@ Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath) {
 
 function Main()
 {
+	$cred = Get-Cred -user $user -password $password
+	
 	if($enable_Network) {
 		# The client and server vm maybe created randomly on server and client host
 		RemoveVM -computerName $client_host -vmName $client_vm
@@ -82,12 +97,12 @@ function Main()
 
 	# For network test, copy/download the vhd
 	if($enable_Network -and $srcPath -and $dstPath) {
-		Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath
-		Get-OSvhd -computerName $client_host -srcPath $srcPath -dstPath $dstPath
+		Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath -cred $cred
+		Get-OSvhd -computerName $client_host -srcPath $srcPath -dstPath $dstPath -cred $cred
 	} else {
 		# For storage test, copy/download the vhd
 		if($srcPath -and $dstPath) {
-			Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath
+			Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath -cred $cred
 		}
 	}
 }
