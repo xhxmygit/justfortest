@@ -34,11 +34,11 @@ Function RemoveVM ($computerName, $vmName) {
 	}
 }
 
-Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath, $cred) {
+Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath, $session) {
 	Write-Output "Copy $srcPath to $dstPath on $computerName ..."
 	
 	if( $srcPath.Trim().StartsWith("http") ){
-		Invoke-Command -ComputerName $computerName -Credential $cred -ScriptBlock {
+		Invoke-Command  -session $session -ScriptBlock {
 			param($srcPath, $dstPath)
 			
 			Import-Module BitsTransfer
@@ -72,11 +72,7 @@ Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath, $
 		}  -ArgumentList $srcPath, $dstPath
 	}
 	else {
-		Invoke-Command -ComputerName $computerName  -Credential $cred -ScriptBlock {
-			param($srcPath, $dstPath)
-			
-			Copy-Item $srcPath -Destination $dstPath -Force
-		}  -ArgumentList $srcPath, $dstPath	
+		Copy-Item $srcPath -Destination $dstPath -ToSession $session
 	}
 
 	Write-Output "Copy $srcPath to $dstPath on $computerName Done."
@@ -86,7 +82,7 @@ Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath, $
 function Main()
 {
 	$cred = Get-Cred -user $user -password $password
-	
+
 	if($enable_Network) {
 		# The client and server vm maybe created randomly on server and client host
 		RemoveVM -computerName $client_host -vmName $client_vm
@@ -97,12 +93,15 @@ function Main()
 
 	# For network test, copy/download the vhd
 	if($enable_Network -and $srcPath -and $dstPath) {
-		Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath -cred $cred
-		Get-OSvhd -computerName $client_host -srcPath $srcPath -dstPath $dstPath -cred $cred
+		$session = New-PsSession  -ComputerName  $server_host -Credential $cred
+		Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath -session $session
+		$session = New-PsSession  -ComputerName  $client_host -Credential $cred
+		Get-OSvhd -computerName $client_host -srcPath $srcPath -dstPath $dstPath -session $session
 	} else {
 		# For storage test, copy/download the vhd
 		if($srcPath -and $dstPath) {
-			Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath -cred $cred
+			$session = New-PsSession  -ComputerName  $server_host -Credential $cred
+			Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath -session $session
 		}
 	}
 }
@@ -116,8 +115,8 @@ Main
 # .\Prepare_Nested_Test_Env_OnHyperv.ps1 -server_host "sh-ostc-perf-03"  -server_vm "server-vm"   `
 										# -client_host "sh-ostc-perf-04" -client_vm "client-vm"   `
 										# -srcPath "\\SH-OSTC-PERF-03\share\xhxTestFile.txt"      `
-										# -dstPath "D:\\lili\\vhd\\xhxTestFile_LOCAL.txt"   -enable_Network
-
+										# -dstPath "D:\\lili\\vhd\\xhxTestFile_LOCAL.txt"         `
+										# -user '**********'  -password '******'   -enable_Network
 
 
 
