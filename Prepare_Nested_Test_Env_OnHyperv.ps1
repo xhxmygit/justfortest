@@ -36,11 +36,19 @@ Function RemoveVM ($computerName, $vmName) {
 
 Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath, $session) {
 	Write-Output "Copy $srcPath to $dstPath on $computerName ..."
+	Invoke-Command  -session $session -ScriptBlock {
+		param($dstPath)
+		$target = ( [io.fileinfo] $dstPath ).DirectoryName
+		if( -not (Test-Path $target) ) {
+			Write-Output "Create the directory: $target"
+			New-Item -Path $target -ItemType "directory" -Force
+		}
+	} -ArgumentList $dstPath
 	
 	if( $srcPath.Trim().StartsWith("http") ){
 		Invoke-Command  -session $session -ScriptBlock {
 			param($srcPath, $dstPath)
-			
+
 			Import-Module BitsTransfer
 			$displayName = "MyBitsTransfer" + (Get-Date)
 			Start-BitsTransfer `
