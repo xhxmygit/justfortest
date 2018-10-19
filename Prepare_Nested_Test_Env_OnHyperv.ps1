@@ -1,14 +1,27 @@
 
+<#
+Usage example:
 
-param([string]$server_host, 
-[string]$server_vm, 
-[string]$client_host, 
-[string]$client_vm, 
-[string]$srcPath="", 
-[string]$dstPath="", 
-$user, 
-$password, 
-[switch]$enable_Network)
+$networkTestHosts = "host1,host2"
+$vmNamesToBeRemoved = "client-vm,server-vm"
+
+.\Prepare_Nested_Test_Env_OnHyperv.ps1  -serviceHosts $networkTestHosts   `
+										-vmNamesToBeRemoved $vmNamesToBeRemoved   `
+										-srcPath "\\***\share\TestFile.txt"      `
+										-dstPath "d:\\vhd\\TestFile_LOCAL.txt"         `
+										-user '*****'  -password '*******'   -enable_Network
+#>
+
+
+param(
+	[string]$serviceHosts, 
+	[string]$vmNamesToBeRemoved, 
+	[string]$srcPath="", 
+	[string]$dstPath="", 
+	$user, 
+	$password, 
+	[switch]$enable_Network
+)
 
 
 Function Get-Cred($user, $password)
@@ -89,53 +102,24 @@ Function Get-OSvhd ([string]$computerName, [string]$srcPath, [string]$dstPath, $
 
 function Main()
 {
-	$cred = Get-Cred -user $user -password $password
-
+	# Delete the exited VMs for network test
 	if($enable_Network) {
-		# The client and server vm maybe created randomly on server and client host
-		RemoveVM -computerName $client_host -vmName $client_vm
-		RemoveVM -computerName $client_host -vmName $server_vm
-		RemoveVM -computerName $server_host -vmName $server_vm
-		RemoveVM -computerName $server_host -vmName $client_vm
+		foreach ( $serviceHost in $serviceHosts.Split(",").Trim() ) {
+			foreach ( $vmName in $vmNamesToBeRemoved.Split(",").Trim() ) {
+				RemoveVM -computerName $serviceHost -vmName $vmName
+			}
+		}
 	}
 
-	# For network test, copy/download the vhd
-	if($enable_Network -and $srcPath -and $dstPath) {
-		$session = New-PsSession  -ComputerName  $server_host -Credential $cred
-		Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath -session $session
-		$session = New-PsSession  -ComputerName  $client_host -Credential $cred
-		Get-OSvhd -computerName $client_host -srcPath $srcPath -dstPath $dstPath -session $session
-	} else {
-		# For storage test, copy/download the vhd
-		if($srcPath -and $dstPath) {
-			$session = New-PsSession  -ComputerName  $server_host -Credential $cred
-			Get-OSvhd -computerName $server_host -srcPath $srcPath -dstPath $dstPath -session $session
+	# Copy/download the vhd from share path or azure blob
+	$cred = Get-Cred -user $user -password $password
+	if($srcPath -and $dstPath) {
+		foreach ( $serviceHost in $serviceHosts.Split(",").Trim() ) {
+			$session = New-PsSession  -ComputerName  $serviceHost -Credential $cred
+			Get-OSvhd -computerName $serviceHost -srcPath $srcPath -dstPath $dstPath -session $session
 		}
 	}
 }
 
 
 Main
-
-
-# .\Prepare_Nested_Test_Env_OnHyperv.ps1 -server_host "sh-ostc-perf-03" -server_vm "server-vm"   -client_host "sh-ostc-perf-04" -client_vm "client-vm" -enable_Network
-
-# .\Prepare_Nested_Test_Env_OnHyperv.ps1 -server_host "sh-ostc-perf-03"  -server_vm "server-vm"   `
-										# -client_host "sh-ostc-perf-04" -client_vm "client-vm"   `
-										# -srcPath "\\SH-OSTC-PERF-03\share\xhxTestFile.txt"      `
-										# -dstPath "D:\\lili\\vhd\\xhxTestFile_LOCAL.txt"         `
-										# -user '**********'  -password '******'   -enable_Network
-
-
-
-
-
-
-
-
-
-
-
-
-
-
